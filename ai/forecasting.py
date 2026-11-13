@@ -47,7 +47,7 @@ class DemandForecaster:
         mean_y = sum_y / n
         ss_tot = sum((y - mean_y) ** 2 for y in y_values)
         ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(x_values, y_values))
-        
+
         if ss_tot > 0:
             r_squared = 1.0 - (ss_res / ss_tot)
         else:
@@ -181,9 +181,9 @@ class DemandForecaster:
         cursor = db_conn.cursor()
 
         cursor.execute("""
-            SELECT i.*, s.lead_time_days 
-            FROM items i 
-            LEFT JOIN suppliers s ON i.supplier_id = s.id 
+            SELECT i.*, s.lead_time_days
+            FROM items i
+            LEFT JOIN suppliers s ON i.supplier_id = s.id
             WHERE i.id = ?
         """, (item_id,))
         item = cursor.fetchone()
@@ -195,16 +195,18 @@ class DemandForecaster:
         current_stock = item['quantity']
         unit = item['unit']
 
-        # Historical consumption
+        # Aggregate all issue transactions from the same calendar date into one daily total.
+        # This prevents multiple issues on a single day from being counted as multiple days.
         cursor.execute("""
-            SELECT logged_date, quantity_used 
-            FROM consumption_logs 
-            WHERE item_id = ? 
+            SELECT logged_date, SUM(quantity_used) AS quantity_used
+            FROM consumption_logs
+            WHERE item_id = ?
+            GROUP BY logged_date
             ORDER BY logged_date ASC
         """, (item_id,))
-        logs = cursor.fetchall()
+        daily_rows = cursor.fetchall()
 
-        daily_usages = [log['quantity_used'] for log in logs]
+        daily_usages = [row['quantity_used'] for row in daily_rows]
         metrics = self.calculate_reorder_metrics(daily_usages, lead_time)
 
         rop = metrics['reorder_point']
