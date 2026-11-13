@@ -195,18 +195,44 @@ class DemandForecaster:
         current_stock = item['quantity']
         unit = item['unit']
 
-        # Aggregate all issue transactions from the same calendar date into one daily total.
-        # This prevents multiple issues on a single day from being counted as multiple days.
+        # Build one observation per operating day (Monday-Friday).
+        # Multiple issues on one date are summed; dates without issues count as zero.
+        # Use the shared history window, bounded by this item's creation date, so
+        # sparse usage is not averaged only across dates with recorded issues.
         cursor.execute("""
-            SELECT logged_date, SUM(quantity_used) AS quantity_used
+            SELECT MIN(logged_date) AS first_date, MAX(logged_date) AS last_date
+            FROM consumption_logs
+        """)
+        history_window = cursor.fetchone()
+
+        daily_totals = {}
+        cursor.execute("""
+            SELECT logged_date, SUM(quantity_used) AS daily_total
             FROM consumption_logs
             WHERE item_id = ?
             GROUP BY logged_date
             ORDER BY logged_date ASC
         """, (item_id,))
-        daily_rows = cursor.fetchall()
+        for row in cursor.fetchall():
+            daily_totals[row['logged_date']] = row['daily_total']
 
-        daily_usages = [row['quantity_used'] for row in daily_rows]
+        daily_usages = []
+        if history_window and history_window['first_date'] and history_window['last_date']:
+            first_date = datetime.strptime(history_window['first_date'], "%Y-%m-%d").date()
+            last_date = datetime.strptime(history_window['last_date'], "%Y-%m-%d").date()
+
+            # Do not count days before this item existed in inventory.
+            created_at = item['created_at']
+            if created_at:
+                item_start = datetime.strptime(str(created_at)[:10], "%Y-%m-%d").date()
+                first_date = max(first_date, item_start)
+
+            current_date = first_date
+            while current_date <= last_date:
+                if current_date.weekday() < 5:  # Monday=0 ... Friday=4
+                    daily_usages.append(daily_totals.get(current_date.isoformat(), 0))
+                current_date += timedelta(days=1)
+
         metrics = self.calculate_reorder_metrics(daily_usages, lead_time)
 
         rop = metrics['reorder_point']
