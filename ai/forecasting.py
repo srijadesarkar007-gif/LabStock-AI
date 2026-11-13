@@ -47,7 +47,7 @@ class DemandForecaster:
         mean_y = sum_y / n
         ss_tot = sum((y - mean_y) ** 2 for y in y_values)
         ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(x_values, y_values))
-        
+
         if ss_tot > 0:
             r_squared = 1.0 - (ss_res / ss_tot)
         else:
@@ -181,9 +181,9 @@ class DemandForecaster:
         cursor = db_conn.cursor()
 
         cursor.execute("""
-            SELECT i.*, s.lead_time_days 
-            FROM items i 
-            LEFT JOIN suppliers s ON i.supplier_id = s.id 
+            SELECT i.*, s.lead_time_days
+            FROM items i
+            LEFT JOIN suppliers s ON i.supplier_id = s.id
             WHERE i.id = ?
         """, (item_id,))
         item = cursor.fetchone()
@@ -195,16 +195,38 @@ class DemandForecaster:
         current_stock = item['quantity']
         unit = item['unit']
 
-        # Historical consumption
+        # Build one observation per operating day (Monday-Friday).
+        # Multiple issues on one date are summed; dates without issues count as zero.
+        # logged_date is authoritative: seeded/backfilled history can predate
+        # the row's created_at timestamp, so do not use created_at to trim history.
         cursor.execute("""
-            SELECT logged_date, quantity_used 
-            FROM consumption_logs 
-            WHERE item_id = ? 
+            SELECT MIN(logged_date) AS first_date, MAX(logged_date) AS last_date
+            FROM consumption_logs
+        """)
+        history_window = cursor.fetchone()
+
+        daily_totals = {}
+        cursor.execute("""
+            SELECT logged_date, SUM(quantity_used) AS daily_total
+            FROM consumption_logs
+            WHERE item_id = ?
+            GROUP BY logged_date
             ORDER BY logged_date ASC
         """, (item_id,))
-        logs = cursor.fetchall()
+        for row in cursor.fetchall():
+            daily_totals[row['logged_date']] = row['daily_total']
 
-        daily_usages = [log['quantity_used'] for log in logs]
+        daily_usages = []
+        if history_window and history_window['first_date'] and history_window['last_date']:
+            first_date = datetime.strptime(history_window['first_date'], "%Y-%m-%d").date()
+            last_date = datetime.strptime(history_window['last_date'], "%Y-%m-%d").date()
+
+            current_date = first_date
+            while current_date <= last_date:
+                if current_date.weekday() < 5:  # Monday=0 ... Friday=4
+                    daily_usages.append(daily_totals.get(current_date.isoformat(), 0))
+                current_date += timedelta(days=1)
+
         metrics = self.calculate_reorder_metrics(daily_usages, lead_time)
 
         rop = metrics['reorder_point']
