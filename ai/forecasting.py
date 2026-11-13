@@ -197,8 +197,8 @@ class DemandForecaster:
 
         # Build one observation per operating day (Monday-Friday).
         # Multiple issues on one date are summed; dates without issues count as zero.
-        # Use the shared history window, bounded by this item's creation date, so
-        # sparse usage is not averaged only across dates with recorded issues.
+        # logged_date is authoritative: seeded/backfilled history can predate
+        # the row's created_at timestamp, so do not use created_at to trim history.
         cursor.execute("""
             SELECT MIN(logged_date) AS first_date, MAX(logged_date) AS last_date
             FROM consumption_logs
@@ -220,12 +220,6 @@ class DemandForecaster:
         if history_window and history_window['first_date'] and history_window['last_date']:
             first_date = datetime.strptime(history_window['first_date'], "%Y-%m-%d").date()
             last_date = datetime.strptime(history_window['last_date'], "%Y-%m-%d").date()
-
-            # Do not count days before this item existed in inventory.
-            created_at = item['created_at']
-            if created_at:
-                item_start = datetime.strptime(str(created_at)[:10], "%Y-%m-%d").date()
-                first_date = max(first_date, item_start)
 
             current_date = first_date
             while current_date <= last_date:
