@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}AI Predictive Analytics & Anomaly Detection – LabStock AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">AI Predictive Analytics & Resource Optimization</h2>
+        <p class="page-description">Predictive demand modeling using time-series forecasting, dynamic safety stock, and statistical anomaly detection.</p>
+    </div>
+</div>
+
+<!-- AI Model Highlights -->
+<div class="kpi-grid">
+    <div class="kpi-card accent-card">
+        <div class="kpi-label">Active Forecasting Engine</div>
+        <div class="kpi-value" style="font-size: 1.4rem; color: #2563eb;">Scikit-learn / Linear Trend</div>
+        <div class="kpi-footer">Calculates Safety Stock ($SS$) & Reorder Point ($ROP$)</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Anomaly Detector Method</div>
+        <div class="kpi-value" style="font-size: 1.4rem; color: #0f2b48;">Z-Score & Outlier Isolation</div>
+        <div class="kpi-footer">Threshold: &gt; 2.0 &sigma; standard deviations</div>
+    </div>
+
+    <div class="kpi-card alert-card">
+        <div class="kpi-label">Active Anomalies Detected</div>
+        <div class="kpi-value" style="color: #dc2626;">{{ anomalies|length }}</div>
+        <div class="kpi-footer">Flagged for lab technician review</div>
+    </div>
+</div>
+
+<!-- Component-Level Forecast Inspector -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Component-Level Demand Forecast & Reorder Calculator</h3>
+            <div class="card-subheading">Select any registered laboratory equipment or consumable to compute predictive optimization metrics</div>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+        <label for="itemSelect" style="font-size: 0.88rem; font-weight: 600; color: var(--navy-dark);">Select Lab Item:</label>
+        <select id="itemSelect" style="padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; min-width: 280px; background: #ffffff;">
+            {% for itm in items %}
+            <option value="{{ itm.id }}">{{ itm.item_code }} &ndash; {{ itm.name }} ({{ itm.lab_name }})</option>
+            {% endfor %}
+        </select>
+        <button id="btnFetchForecast" type="button" style="padding: 0.5rem 1.2rem; background: var(--navy-primary); color: #fff; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+            Compute Forecast &rarr;
+        </button>
+    </div>
+
+    <div id="forecastResultGrid" class="kpi-grid" style="margin-bottom: 0;">
+        <div class="kpi-card" style="border-top-color: var(--blue-accent);">
+            <div class="kpi-label">Current Stock Level</div>
+            <div id="resCurrentStock" class="kpi-value">--</div>
+            <div id="resUnit" class="kpi-footer">Units registered</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">30-Day Predicted Demand</div>
+            <div id="resDemand" class="kpi-value" style="color: var(--blue-accent);">--</div>
+            <div class="kpi-footer">Estimated student practical usage</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Dynamic Safety Stock ($SS$)</div>
+            <div id="resSafetyStock" class="kpi-value" style="color: #0f2b48;">--</div>
+            <div class="kpi-footer">$Z \times \sigma_d \times \sqrt{L}$ (95% service level)</div>
+        </div>
+
+        <div class="kpi-card alert-card">
+            <div class="kpi-label">Reorder Point ($ROP$)</div>
+            <div id="resROP" class="kpi-value" style="color: #dc2626;">--</div>
+            <div id="resReorderStatus" class="kpi-footer">Recommended action</div>
+        </div>
+    </div>
+</div>
+
+<!-- Anomaly Alert Logs Table -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Flagged Resource Consumption Anomalies</h3>
+            <div class="card-subheading">Unusual bulk withdrawals or spike events detected by AI engine</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Laboratory</th>
+                    <th>Qty Logged</th>
+                    <th>Issued To</th>
+                    <th>Severity</th>
+                    <th>Date Detected</th>
+                    <th>Anomaly Explanation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in anomalies %}
+                <tr>
+                    <td class="item-code">{{ alert.item_code }}</td>
+                    <td><strong>{{ alert.item_name }}</strong></td>
+                    <td>{{ alert.lab_name }}</td>
+                    <td><strong style="color: #dc2626;">{{ alert.quantity_logged }}</strong></td>
+                    <td>{{ alert.issued_to or "Lab Batch" }}</td>
+                    <td>
+                        {% if alert.severity == 'Critical' %}
+                            <span class="badge badge-critical">Critical</span>
+                        {% else %}
+                            <span class="badge badge-low-stock">{{ alert.severity }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ alert.detected_at[:10] if alert.detected_at else "Recent" }}</td>
+                    <td>{{ alert.anomaly_reason or alert.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- AI Model Pipeline Architecture Overview -->
+<div class="dashboard-card">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">AI/ML Architecture & Optimization Pipeline</h3>
+            <div class="card-subheading">College Engineering Laboratory Project Reference</div>
+        </div>
+    </div>
+    <div style="font-size: 0.9rem; color: #334155; line-height: 1.7;">
+        <p><strong>1. Data Ingestion:</strong> Historical lab consumption logs stored in SQLite are extracted into Pandas DataFrames for feature engineering (lag features, rolling averages, semester examination cycle indicators).</p>
+        <p style="margin-top: 0.5rem;"><strong>2. Demand Forecasting:</strong> Regression models (Scikit-learn Linear Regression, Polynomial Trend) forecast upcoming component requirements ahead of practicals and student projects.</p>
+        <p style="margin-top: 0.5rem;"><strong>3. Inventory Optimization:</strong> Computes statistical Safety Stock ($SS = Z \cdot \sigma_d \cdot \sqrt{L}$) and Reorder Point ($ROP = \bar{d} \cdot L + SS$) to prevent shortages while minimizing holding costs.</p>
+        <p style="margin-top: 0.5rem;"><strong>4. Anomaly Detection:</strong> Statistical Z-score evaluation identifies abnormal component loss, hoarding, or unexpected usage spikes exceeding $2.0 \sigma$.</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const select = document.getElementById('itemSelect');
+    const btn = document.getElementById('btnFetchForecast');
+
+    function loadItemForecast() {
+        if (!select || !select.value) return;
+        fetch('/api/forecast/item/' + select.value)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) return;
+                document.getElementById('resCurrentStock').innerText = data.current_stock + ' ' + data.unit;
+                document.getElementById('resDemand').innerText = data.predicted_30d_demand + ' ' + data.unit;
+                document.getElementById('resSafetyStock').innerText = data.safety_stock + ' ' + data.unit;
+                document.getElementById('resROP').innerText = data.reorder_point + ' ' + data.unit;
+
+                const statusEl = document.getElementById('resReorderStatus');
+                if (data.reorder_recommended) {
+                    statusEl.innerHTML = '<span style="color: #dc2626; font-weight: 600;">&bull; Stock &le; ROP: Reorder ' + data.suggested_order_quantity + ' ' + data.unit + '</span>';
+                } else {
+                    statusEl.innerHTML = '<span style="color: #15803d; font-weight: 600;">&bull; Stock Adequate: Above ROP</span>';
+                }
+            })
+            .catch(err => console.error("Error loading forecast:", err));
+    }
+
+    if (btn) {
+        btn.addEventListener('click', loadItemForecast);
+    }
+    if (select) {
+        select.addEventListener('change', loadItemForecast);
+        loadItemForecast();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}LabStock AI – Engineering Laboratories System{% endblock %}</title>
+    <!-- Custom Academic Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Academic Top Navigation Bar -->
+    <header class="academic-navbar">
+        <div class="brand-wrapper">
+            <div class="brand-icon">LS</div>
+            <div>
+                <h1 class="brand-title">LabStock AI</h1>
+                <div class="brand-subtitle">Predictive Inventory & Resource Optimization</div>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="header-status-badge">
+                <span class="pulse-dot"></span>
+                <span>Academic Lab System Online</span>
+            </div>
+            {% if session.get('user_id') %}
+            <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.82rem; color: #e2e8f0;">
+                <span>Logged in: <strong>{{ session.get('full_name', 'Administrator') }}</strong></span>
+                <a href="{{ url_for('views.logout') }}" style="color: #f87171; text-decoration: none; background: rgba(220,38,38,0.15); padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid rgba(220,38,38,0.3); font-weight: 600;">
+                    Sign Out
+                </a>
+            </div>
+            {% else %}
+            <a href="{{ url_for('views.login') }}" style="color: #ffffff; text-decoration: none; font-size: 0.82rem; background: rgba(255,255,255,0.15); padding: 0.35rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.2);">
+                Admin Portal &rarr;
+            </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="academic-sidebar">
+            <div class="nav-section-title">Core Navigation</div>
+            
+            <a href="{{ url_for('views.dashboard') }}" class="sidebar-nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="{{ url_for('views.inventory') }}" class="sidebar-nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span>Lab Inventory</span>
+            </a>
+
+            <a href="{{ url_for('schedules.list_schedules') }}" class="sidebar-nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Practical Schedules</span>
+            </a>
+
+            <div class="nav-section-title">Safety & Intelligence</div>
+
+            <a href="{{ url_for('alerts.alerts_center') }}" class="sidebar-nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>Inventory & Expiry Alerts</span>
+                <span class="sidebar-badge">Alerts</span>
+            </a>
+
+            <a href="{{ url_for('views.analytics') }}" class="sidebar-nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span>AI Demand Analytics</span>
+            </a>
+
+<a href="{{ url_for('views.consumption') }}" class="sidebar-nav-link">
+    <svg width="18" height="18" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16v16H4z"></path>
+        <path d="M8 8h8M8 12h8M8 16h5"></path>
+    </svg>
+    <span>Consumption Logs</span>
+</a>
+
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-workspace">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Academic Footer -->
+    <footer class="academic-footer">
+        <p><strong>LabStock AI</strong> &bull; College Engineering Laboratory Resource Optimization & Predictive Inventory Control System &bull; SQLite &bull; Flask &bull; Scikit-learn</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>

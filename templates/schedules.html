@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Laboratory Practical Schedules – LabStock AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Laboratory Practical Schedules & Resource Readiness</h2>
+        <p class="page-description">Academic timetable synchronized with laboratory stock requirements and equipment availability.</p>
+    </div>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi-card accent-card">
+        <div class="kpi-label">Upcoming Practicals</div>
+        <div class="kpi-value" style="color: #2563eb;">{{ schedules|length }}</div>
+        <div class="kpi-footer">Scheduled for current academic cycle</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Active Lab Rooms</div>
+        <div class="kpi-value">4</div>
+        <div class="kpi-footer">Microcontroller, IoT Hub, Fab Lab, Chemistry</div>
+    </div>
+
+    <div class="kpi-card alert-card">
+        <div class="kpi-label">Readiness Warning</div>
+        <div class="kpi-value" style="color: #dc2626;">
+            {% set deficit_count = namespace(count=0) %}
+            {% for item in schedules %}
+                {% if item.has_deficit %}
+                    {% set deficit_count.count = deficit_count.count + 1 %}
+                {% endif %}
+            {% endfor %}
+            {{ deficit_count.count }}
+        </div>
+        <div class="kpi-footer">Sessions with component stock deficits</div>
+    </div>
+</div>
+
+<div class="dashboard-card">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Practical Timetable & Resource Allocation</h3>
+            <div class="card-subheading">Pre-session inventory verification to prevent shortage during student experiments</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Course</th>
+                    <th>Practical Experiment</th>
+                    <th>Lab Room</th>
+                    <th>Batch / Students</th>
+                    <th>Instructor</th>
+                    <th>Required Components</th>
+                    <th>Stock Readiness</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in schedules %}
+                {% set s = entry.schedule %}
+                <tr>
+                    <td>
+                        <strong>{{ s.scheduled_date }}</strong><br>
+                        <span style="font-size: 0.78rem; color: #64748b;">{{ s.start_time }} - {{ s.end_time }}</span>
+                    </td>
+                    <td><span class="item-code">{{ s.course_code }}</span></td>
+                    <td>
+                        <strong>{{ s.practical_title }}</strong><br>
+                        <span style="font-size: 0.78rem; color: #64748b;">{{ s.course_name }}</span>
+                    </td>
+                    <td>{{ s.lab_room }}</td>
+                    <td>{{ s.student_batch }} ({{ s.student_count }})</td>
+                    <td>{{ s.instructor_name }}</td>
+                    <td>
+                        <ul style="list-style-type: none; padding-left: 0; font-size: 0.8rem; margin: 0;">
+                            {% for req in entry.requirements %}
+                            <li>
+                                &bull; {{ req.item_name }} (Req: {{ req.required_quantity }} | Stock: {{ req.current_stock }})
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td>
+                        {% if entry.has_deficit %}
+                            <span class="badge badge-critical">Stock Deficit</span>
+                        {% else %}
+                            <span class="badge badge-in-stock">Ready</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

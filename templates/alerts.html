@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory & Expiry Alerts – LabStock AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Inventory & Consumable Expiry Alerts</h2>
+        <p class="page-description">Automated warnings for stock depletion thresholds, chemical reagent shelf-life expiry, and anomalous usage.</p>
+    </div>
+</div>
+
+<!-- Alert Metrics Overview -->
+<div class="kpi-grid">
+    <div class="kpi-card alert-card">
+        <div class="kpi-label">Low Stock Alerts</div>
+        <div class="kpi-value" style="color: #dc2626;">{{ counts.low_stock }}</div>
+        <div class="kpi-footer">Below safe laboratory threshold</div>
+    </div>
+
+    <div class="kpi-card alert-card">
+        <div class="kpi-label">Expired Consumables</div>
+        <div class="kpi-value" style="color: #b91c1c;">{{ counts.expired }}</div>
+        <div class="kpi-footer">Requires safe laboratory disposal</div>
+    </div>
+
+    <div class="kpi-card" style="border-top-color: #f59e0b;">
+        <div class="kpi-label">Expiring Within 30 Days</div>
+        <div class="kpi-value" style="color: #d97706;">{{ counts.expiring_soon }}</div>
+        <div class="kpi-footer">Reagents approaching shelf life</div>
+    </div>
+
+    <div class="kpi-card accent-card">
+        <div class="kpi-label">Unresolved Anomalies</div>
+        <div class="kpi-value" style="color: #2563eb;">{{ counts.anomalies }}</div>
+        <div class="kpi-footer">Flagged for lab technician review</div>
+    </div>
+</div>
+
+<!-- 1. Expiry Alerts Section -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Chemical & Consumable Expiry Tracking</h3>
+            <div class="card-subheading">Monitors reagent potency, buffer solutions, resins, and perishable laboratory supplies</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Chemical / Consumable Name</th>
+                    <th>Laboratory</th>
+                    <th>Batch Number</th>
+                    <th>Current Stock</th>
+                    <th>Expiry Date</th>
+                    <th>Shelf-Life Status</th>
+                    <th>Storage Location</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in expired_items %}
+                <tr style="background-color: #fef2f2;">
+                    <td class="item-code">{{ item.item_code }}</td>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.lab_name }}</td>
+                    <td><code>{{ item.batch_number }}</code></td>
+                    <td>{{ item.quantity }} {{ item.unit }}</td>
+                    <td><strong style="color: #b91c1c;">{{ item.expiry_date }}</strong></td>
+                    <td><span class="badge badge-critical">EXPIRED</span></td>
+                    <td>{{ item.storage_location }}</td>
+                </tr>
+                {% endfor %}
+
+                {% for item in expiring_soon_items %}
+                <tr style="background-color: #fffbeb;">
+                    <td class="item-code">{{ item.item_code }}</td>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.lab_name }}</td>
+                    <td><code>{{ item.batch_number }}</code></td>
+                    <td>{{ item.quantity }} {{ item.unit }}</td>
+                    <td><strong style="color: #d97706;">{{ item.expiry_date }}</strong></td>
+                    <td><span class="badge badge-low-stock">Expiring Soon (&lt; 30d)</span></td>
+                    <td>{{ item.storage_location }}</td>
+                </tr>
+                {% endfor %}
+
+                {% if not expired_items and not expiring_soon_items %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #64748b; padding: 1.5rem;">
+                        No expired or expiring consumables detected.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 2. Low-Stock Safety Threshold Alerts Section -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Depleted & Low-Stock Hardware / Consumables</h3>
+            <div class="card-subheading">Items that have fallen below safety inventory reorder limits</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Department</th>
+                    <th>Laboratory</th>
+                    <th>Current Quantity</th>
+                    <th>Minimum Safety Level</th>
+                    <th>Unit Cost</th>
+                    <th>Alert Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in low_stock_items %}
+                <tr>
+                    <td class="item-code">{{ item.item_code }}</td>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.category_name }}</td>
+                    <td>{{ item.lab_name }}</td>
+                    <td><strong style="color: #dc2626;">{{ item.quantity }}</strong> {{ item.unit }}</td>
+                    <td>{{ item.minimum_threshold }} {{ item.unit }}</td>
+                    <td>${{ "%.2f"|format(item.unit_cost) }}</td>
+                    <td>
+                        {% if item.quantity <= (item.minimum_threshold / 2) %}
+                            <span class="badge badge-critical">Critical Depletion</span>
+                        {% else %}
+                            <span class="badge badge-low-stock">Low Stock Warning</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 3. AI-Detected Consumption Anomalies Section -->
+<div class="dashboard-card">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">AI-Detected Consumption & Checkout Anomalies</h3>
+            <div class="card-subheading">Flagged by Z-score outlier detection (&gt; 2.0 &sigma;) during student session checkouts</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Component Name</th>
+                    <th>Laboratory</th>
+                    <th>Severity</th>
+                    <th>Detected Date</th>
+                    <th>Anomaly Explanation</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in anomalies %}
+                <tr>
+                    <td class="item-code">{{ a.item_code }}</td>
+                    <td><strong>{{ a.item_name }}</strong></td>
+                    <td>{{ a.lab_name }}</td>
+                    <td>
+                        {% if a.severity == 'Critical' %}
+                            <span class="badge badge-critical">Critical</span>
+                        {% elif a.severity == 'High' %}
+                            <span class="badge badge-low-stock" style="background: #fed7aa; color: #9a3412;">High</span>
+                        {% else %}
+                            <span class="badge badge-low-stock">Medium</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ a.detected_at[:10] if a.detected_at else "Recent" }}</td>
+                    <td>{{ a.anomaly_reason }}</td>
+                    <td style="text-align: right;">
+                        {% if session.get('user_id') %}
+                        <button class="btn btn-action-resolve" data-anomaly-id="{{ a.id }}">
+                            Resolve
+                        </button>
+                        {% else %}
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">Admin Required</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% if not anomalies %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #64748b; padding: 1.5rem;">
+                        No active anomalies detected. All laboratory checkouts within normal parameters.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

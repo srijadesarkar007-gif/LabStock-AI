@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Overview – LabStock AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Engineering Laboratory Dashboard</h2>
+        <p class="page-description">Real-time status of academic lab equipment, consumables, and predictive resource demand.</p>
+    </div>
+</div>
+
+<!-- KPI Metric Cards Grid -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Total Catalogued Items</div>
+        <div class="kpi-value">{{ kpi.total_items }}</div>
+        <div class="kpi-footer">Across {{ kpi.active_labs_count }} engineering laboratories</div>
+    </div>
+
+    <div class="kpi-card alert-card">
+        <div class="kpi-label">Low Stock Alerts</div>
+        <div class="kpi-value" style="color: #dc2626;">{{ kpi.low_stock_count }}</div>
+        <div class="kpi-footer">Below safe minimum threshold</div>
+    </div>
+
+    <div class="kpi-card accent-card">
+        <div class="kpi-label">Model Fit (R² Score)</div>
+        <div class="kpi-value" style="color: #2563eb;">{{ kpi.model_r2_score }}</div>
+        <div class="kpi-footer">Least-squares regression on semester cycles</div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-label">Active Anomaly Alerts</div>
+        <div class="kpi-value" style="color: #b45309;">{{ kpi.pending_anomalies }}</div>
+        <div class="kpi-footer">Unresolved checkout patterns flagged</div>
+    </div>
+</div>
+
+<!-- Visual Data Charts Grid -->
+<div class="charts-grid">
+    <div class="dashboard-card">
+        <div class="card-title-bar">
+            <div>
+                <h3 class="card-heading">Semester Resource Demand Forecasting</h3>
+                <div class="card-subheading">Simulated benchmark consumption vs. AI projected requirements (Chart.js)</div>
+            </div>
+        </div>
+        <div class="canvas-container">
+            <canvas id="demandForecastChart"></canvas>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="card-title-bar">
+            <div>
+                <h3 class="card-heading">Department Distribution</h3>
+                <div class="card-subheading">Inventory allocation by engineering branch</div>
+            </div>
+        </div>
+        <div class="canvas-container">
+            <canvas id="deptDistributionChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Critical Items & Reorder Priority Table Preview -->
+<div class="dashboard-card">
+    <div class="card-title-bar">
+        <div>
+            <h3 class="card-heading">Key Laboratory Items & Reorder Status</h3>
+            <div class="card-subheading">Real-time inventory levels from local SQLite database</div>
+        </div>
+        <a href="{{ url_for('views.inventory') }}" style="color: #2563eb; font-size: 0.85rem; font-weight: 600; text-decoration: none;">View Complete Catalog &rarr;</a>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Equipment / Component</th>
+                    <th>Laboratory</th>
+                    <th>Category</th>
+                    <th>Stock / Min</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="item-code">{{ item.item_code }}</td>
+                    <td><strong>{{ item.name }}</strong></td>
+                    <td>{{ item.lab_name }}</td>
+                    <td>{{ item.category_name }}</td>
+                    <td>{{ item.quantity }} / {{ item.minimum_threshold }} {{ item.unit }}</td>
+                    <td>
+                        {% if item.status == 'In Stock' %}
+                            <span class="badge badge-in-stock">In Stock</span>
+                        {% elif item.status == 'Low Stock' %}
+                            <span class="badge badge-low-stock">Low Stock</span>
+                        {% else %}
+                            <span class="badge badge-critical">Critical</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

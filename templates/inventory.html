@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}Lab Inventory Registry – LabStock AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Engineering Laboratory Inventory Registry</h2>
+        <p class="page-description">Interactive catalogue of hardware, instrumentation, microcontrollers, and chemical consumables.</p>
+    </div>
+    {% if session.get('user_id') %}
+    <button class="btn btn-primary" onclick="openModal('addItemModal')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add New Lab Item</span>
+    </button>
+    {% else %}
+    <a href="{{ url_for('views.login', next=url_for('views.inventory')) }}" class="btn btn-secondary">
+        <span>Admin Sign-In to Modify Inventory</span>
+    </a>
+    {% endif %}
+</div>
+
+<!-- Interactive Search & Filter Toolbar -->
+<div class="dashboard-card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+    <div class="inventory-toolbar">
+        <div class="search-filter-group">
+            <input type="text" id="inventorySearch" class="search-bar-input" placeholder="Search equipment, item code, lab, or batch..." autocomplete="off">
+
+            <select id="filterDepartment" class="filter-select">
+                <option value="">All Departments</option>
+                {% set departments = [] %}
+                {% for c in categories %}
+                    {% if c.department not in departments %}
+                        {% set _ = departments.append(c.department) %}
+                        <option value="{{ c.department }}">{{ c.department }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+
+            <select id="filterStatus" class="filter-select">
+                <option value="">All Statuses</option>
+                <option value="In Stock">In Stock</option>
+                <option value="Low Stock">Low Stock</option>
+                <option value="Critical">Critical</option>
+            </select>
+        </div>
+
+        <div id="inventoryVisibleCount" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+            Showing {{ items|length }} of {{ items|length }} items
+        </div>
+    </div>
+</div>
+
+<!-- Master Inventory Table -->
+<div class="dashboard-card">
+    <div class="table-wrapper">
+        <table class="academic-table">
+            <thead>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Equipment / Reagent</th>
+                    <th>Department & Lab</th>
+                    <th>Location / Batch</th>
+                    <th>Stock / Min</th>
+                    <th>Unit Cost</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Stock Actions</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryTableBody">
+                {% for item in items %}
+                <tr data-item-row data-department="{{ item.department }}" data-status="{{ item.status }}">
+                    <td class="item-code">{{ item.item_code }}</td>
+                    <td>
+                        <strong>{{ item.name }}</strong>
+                        {% if item.supplier_name %}
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">Vendor: {{ item.supplier_name }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div>{{ item.department }}</div>
+                        <div style="font-size: 0.75rem; color: var(--navy-light);">{{ item.lab_name }}</div>
+                    </td>
+                    <td>
+                        <div>{{ item.storage_location or "Central Store" }}</div>
+                        {% if item.batch_number %}
+                        <code style="font-size: 0.72rem; background: #f1f5f9; padding: 2px 4px; border-radius: 3px;">{{ item.batch_number }}</code>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong style="color: var(--navy-dark); font-size: 0.95rem;">{{ item.quantity }}</strong>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">/ {{ item.minimum_threshold }} {{ item.unit }}</span>
+                    </td>
+                    <td>${{ "%.2f"|format(item.unit_cost) }}</td>
+                    <td>
+                        {% if item.expiry_date %}
+                            {% if item.status == 'Critical' and 'CHM' in item.item_code %}
+                            <strong style="color: #dc2626; font-size: 0.8rem;">{{ item.expiry_date }}</strong>
+                            {% else %}
+                            <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ item.expiry_date }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.status == 'In Stock' %}
+                            <span class="badge badge-in-stock">In Stock</span>
+                        {% elif item.status == 'Low Stock' %}
+                            <span class="badge badge-low-stock">Low Stock</span>
+                        {% else %}
+                            <span class="badge badge-critical">Critical</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        {% if session.get('user_id') %}
+                        <button class="btn btn-action-issue" onclick="prepareIssueModal({{ item.id }}, '{{ item.name|replace('\'', '\\\'') }}', '{{ item.item_code }}', {{ item.quantity }}, '{{ item.unit }}')">
+                            Issue
+                        </button>
+                        <button class="btn btn-action-restock" onclick="prepareRestockModal({{ item.id }}, '{{ item.name|replace('\'', '\\\'') }}', '{{ item.item_code }}', {{ item.quantity }}, '{{ item.unit }}', '{{ item.batch_number or '' }}', '{{ item.expiry_date or '' }}')">
+                            Restock
+                        </button>
+                        {% else %}
+                        <a href="{{ url_for('views.login', next=url_for('views.inventory')) }}" class="btn btn-action-issue" style="text-decoration: none;">
+                            Sign In
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- Modal 1: Add New Laboratory Item                                      -->
+<!-- ====================================================================== -->
+<div id="addItemModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Catalogue New Laboratory Item</h3>
+            <button class="modal-close-btn" onclick="closeModal('addItemModal')">&times;</button>
+        </div>
+        <form id="addItemForm">
+            <div class="modal-body">
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemName">Item / Equipment Name *</label>
+                        <input type="text" id="addItemName" class="form-control" placeholder="e.g. Raspberry Pi 4 Model B" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemCode">Unique Item Code *</label>
+                        <input type="text" id="addItemCode" class="form-control" placeholder="e.g. CSE-SBC-015" required style="text-transform: uppercase;">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemCategory">Category / Department *</label>
+                        <select id="addItemCategory" class="form-control" required>
+                            <option value="">Select Department Category</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.department }} &ndash; {{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemLabName">Laboratory Room / Center *</label>
+                        <input type="text" id="addItemLabName" class="form-control" placeholder="e.g. IoT Embedded Lab Room 302" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemQuantity">Initial Stock Quantity *</label>
+                        <input type="number" id="addItemQuantity" class="form-control" min="0" value="20" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemUnit">Unit of Measure *</label>
+                        <input type="text" id="addItemUnit" class="form-control" placeholder="e.g. units, spools, kits, bottles" value="units" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemThreshold">Minimum Safety Threshold *</label>
+                        <input type="number" id="addItemThreshold" class="form-control" min="1" value="10" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemUnitCost">Unit Cost ($) *</label>
+                        <input type="number" id="addItemUnitCost" class="form-control" min="0" step="0.01" value="15.00" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemLocation">Storage Location</label>
+                        <input type="text" id="addItemLocation" class="form-control" placeholder="e.g. Cabinet C-4, Shelf 2">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemSupplier">Primary Supplier / Vendor</label>
+                        <select id="addItemSupplier" class="form-control">
+                            <option value="">Select Supplier (Optional)</option>
+                            {% for sup in suppliers %}
+                            <option value="{{ sup.id }}">{{ sup.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="addItemBatch">Batch / Lot Number</label>
+                        <input type="text" id="addItemBatch" class="form-control" placeholder="e.g. LOT-2026-RPI">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addItemExpiry">Expiry Date (Reagents/Perishables)</label>
+                        <input type="date" id="addItemExpiry" class="form-control">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addItemModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- Modal 2: Issue Component Stock                                         -->
+<!-- ====================================================================== -->
+<div id="issueStockModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header" style="background-color: var(--navy-medium);">
+            <h3 class="modal-title">Issue Laboratory Component Stock</h3>
+            <button class="modal-close-btn" onclick="closeModal('issueStockModal')">&times;</button>
+        </div>
+        <form id="issueStockForm">
+            <input type="hidden" id="issueItemId">
+            <div class="modal-body">
+                <div style="background-color: var(--blue-soft); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--navy-light);">Selected Laboratory Item</div>
+                    <div id="issueItemNameDisplay" style="font-size: 1.05rem; font-weight: 700; color: var(--navy-dark); margin: 0.2rem 0;">--</div>
+                    <div style="font-size: 0.82rem; color: var(--text-secondary);">
+                        Currently Available in Stock: <strong id="issueStockAvailableDisplay" style="color: #2563eb;">--</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="issueQuantity">Quantity to Issue *</label>
+                    <input type="number" id="issueQuantity" class="form-control" min="1" value="1" required>
+                    <div class="form-help">Stock will be decremented and logged for semester consumption time-series.</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="issueIssuedTo">Student Batch / Research Group *</label>
+                    <input type="text" id="issueIssuedTo" class="form-control" placeholder="e.g. Batch 2024-ECE-Sec A / Team 4" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="issuePurpose">Laboratory Purpose / Experiment *</label>
+                    <input type="text" id="issuePurpose" class="form-control" placeholder="e.g. Practical Experiment 7: Microcontroller PWM" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('issueStockModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: var(--blue-accent);">Confirm Stock Issue</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====================================================================== -->
+<!-- Modal 3: Restock Laboratory Component                                  -->
+<!-- ====================================================================== -->
+<div id="restockModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header" style="background-color: #064e3b; border-bottom-color: #10b981;">
+            <h3 class="modal-title">Replenish / Restock Laboratory Item</h3>
+            <button class="modal-close-btn" onclick="closeModal('restockModal')">&times;</button>
+        </div>
+        <form id="restockForm">
+            <input type="hidden" id="restockItemId">
+            <div class="modal-body">
+                <div style="background-color: #ecfdf5; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; border: 1px solid #a7f3d0;">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #047857;">Restocking Target Item</div>
+                    <div id="restockItemNameDisplay" style="font-size: 1.05rem; font-weight: 700; color: #064e3b; margin: 0.2rem 0;">--</div>
+                    <div style="font-size: 0.82rem; color: #065f46;">
+                        Current Stock: <strong id="restockStockAvailableDisplay">--</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="restockQuantity">Quantity to Add *</label>
+                    <input type="number" id="restockQuantity" class="form-control" min="1" value="10" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="restockSupplierName">Supplier / Delivery Source *</label>
+                    <input type="text" id="restockSupplierName" class="form-control" placeholder="e.g. Element14 Invoice #PO-9842" required>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label class="form-label" for="restockBatchNumber">New Batch / Lot Number</label>
+                        <input type="text" id="restockBatchNumber" class="form-control" placeholder="Leave blank to keep existing">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="restockExpiryDate">New Expiry Date (If Applicable)</label>
+                        <input type="date" id="restockExpiryDate" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="restockNotes">Inward Notes / Comments</label>
+                    <input type="text" id="restockNotes" class="form-control" placeholder="e.g. Received in good order, calibrated and tested">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('restockModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background-color: #059669;">Confirm Restock</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
