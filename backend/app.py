@@ -36,8 +36,10 @@ def create_app(config_class=Config):
     return app
 
 
+# WSGI entry point for Render/Gunicorn.
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     print("=" * 65)
     print("  LabStock AI – Engineering Laboratory Inventory & AI System  ")
     print("  Dashboard URL: http://127.0.0.1:5000                        ")
