@@ -9,4 +9,4 @@ class Config:
     SCHEMA_PATH = os.path.join(BASE_DIR, 'database', 'schema.sql')
     TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
     STATIC_DIR = os.path.join(BASE_DIR, 'static')
-    DEBUG = True
+    DEBUG = False
